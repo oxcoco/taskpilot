@@ -9,33 +9,34 @@ task, and toggle its completion status.
 from typing import List, Dict, Any
 import uuid
 
-from ..database.db import (
-    add_task,
-    update_task,
-    delete_task,
-    get_task,
-    list_tasks,
-    create_tables,
-)
+from ..agents.task_agent import TaskAgent
+from ..database.db import create_tables
+from ..database.models import TaskStatus, TaskPriority
 # Ensure the SQLite tables exist before any operation.
-create_tables()
+create_tables()  # keep table creation but DB functions are no longer imported directly
 from ..agents.scheduler_agent import SchedulerAgent
-from ..skills.weekly_plan import generate_weekly_plan
-from ..skills.deadline_check import check_deadlines
-from ..database.models import Task, TaskStatus, TaskPriority
 
+from ..mcp.todo_server import create_task as mcp_create_task
+from ..skills.deadline_check import check_deadlines
+from ..skills.weekly_plan import generate_weekly_plan
+from ..agents.priority_agent import PriorityAgent
 
 def delete_all_tasks() -> None:
     """Delete every task in the database."""
-    for task in list_tasks():
-        delete_task(task.id)
+    for task in TaskAgent.list_tasks():
+        TaskAgent.delete_task(task.id)
 
 
 def show_schedule() -> None:
-    """Generate and display the schedule from SchedulerAgent."""
-    # Convert Task objects to dicts for the scheduler
-    tasks = [t.to_dict() for t in list_tasks()]
-    schedule = SchedulerAgent.generate_schedule(tasks)
+    """Generate and display the schedule, respecting priority and persisting to calendar."""
+    # Load all tasks from DB
+    tasks = TaskAgent.list_tasks()
+    # Convert to simple dicts for downstream agents
+    task_dicts: List[Dict[str, Any]] = [t.to_dict() for t in tasks]
+    # Rank tasks by priority
+    ranked = PriorityAgent().rank_tasks(task_dicts)
+    # Generate schedule (this will also persist events via MCP)
+    schedule = SchedulerAgent.generate_schedule(ranked)
     if not schedule:
         print("[TaskPilot] No schedule generated (no tasks).")
         return
@@ -48,26 +49,33 @@ def show_schedule() -> None:
 
 def list_all_tasks() -> List[Dict[str, Any]]:
     """Return all tasks as plain dictionaries for easy display."""
-    return [t.to_dict() for t in list_tasks()]
+    return [t.to_dict() for t in TaskAgent.list_tasks()]
 
 
 def add_task_interactive(title: str, description: str = "", deadline: str = None,
-                         priority: str = "MEDIUM", estimated_hours: float = 1.0) -> None:
-    """Create and store a new task.
-
-    Parameters are simple strings/values; ``priority`` must be one of the
-    ``TaskPriority`` enum names.
+                          priority: str = "MEDIUM", estimated_hours: float = 1.0) -> None:
+    """Create and store a new task via the MCP todo server using TaskAgent parsing.
+    The provided fields are concatenated into a simple natural‑language description
+    which TaskAgent parses into one or more :class:`Task` objects. Each resulting
+    task is persisted via the MCP façade.
     """
-    task = Task(
-        id=str(uuid.uuid4()),
-        title=title,
-        description=description,
-        deadline=deadline,
-        priority=TaskPriority[priority.upper()],
-        estimated_hours=estimated_hours,
-        status=TaskStatus.PENDING,
-    )
-    add_task(task)
+    # Combine fields into a single description for the TaskAgent
+    raw_input = f"{title}"
+    if description:
+        raw_input += f" {description}"
+    if deadline:
+        raw_input += f" by {deadline}"
+    # Extract task objects
+    tasks = TaskAgent().extract_tasks(raw_input)
+    for task in tasks:
+        # Use the MCP create_task to persist
+        mcp_create_task(
+            title=task.title,
+            deadline=task.deadline,
+            description=task.description,
+            priority=task.priority.name,
+            estimated_hours=task.estimated_hours,
+        )
 
 
 def edit_task(task_id: str, **updates: Any) -> None:
@@ -77,7 +85,7 @@ def edit_task(task_id: str, **updates: Any) -> None:
     deadline, priority, estimated_hours, status). Enum fields accept either the
     enum instance or the string name.
     """
-    task = get_task(task_id)
+    task = TaskAgent.get_task(task_id)
     if not task:
         raise ValueError(f"Task {task_id} not found")
     for key, value in updates.items():
@@ -86,19 +94,19 @@ def edit_task(task_id: str, **updates: Any) -> None:
         if key == "status" and isinstance(value, str):
             value = TaskStatus[value.upper()]
         setattr(task, key, value)
-    update_task(task)
+    TaskAgent.update_task(task)
 
 
 def delete_task_by_id(task_id: str) -> None:
     """Remove a task from the database."""
-    delete_task(task_id)
+    TaskAgent.delete_task(task_id)
 
 
 def mark_done(task_id: str) -> None:
     """Mark a task as completed."""
-    edit_task(task_id, status=TaskStatus.COMPLETED)
+    TaskAgent.set_status(task_id, TaskStatus.COMPLETED)
 
 
 def mark_undone(task_id: str) -> None:
     """Mark a task as not completed (pending)."""
-    edit_task(task_id, status=TaskStatus.PENDING)
+    TaskAgent.set_status(task_id, TaskStatus.PENDING)

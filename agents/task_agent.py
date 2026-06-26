@@ -12,6 +12,7 @@ import uuid
 from typing import List
 
 from ..database.models import Task, TaskPriority, TaskStatus
+from ..mcp.todo_server import create_task as mcp_create_task, update_task as mcp_update_task, delete_task as mcp_delete_task, get_task as mcp_get_task, list_tasks as mcp_list_tasks
 
 
 class TaskAgent:
@@ -58,3 +59,45 @@ class TaskAgent:
                 tasks.append(self._parse_fragment(frag))
         return tasks
 
+
+    @staticmethod
+    def list_tasks() -> List[Task]:
+        """Return all tasks via MCP."""
+        return mcp_list_tasks()
+
+    @staticmethod
+    def get_task(task_id: str) -> Task:
+        """Retrieve a single task via MCP."""
+        task = mcp_get_task(task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+        return task
+
+    @staticmethod
+    def update_task(task: Task) -> None:
+        """Update a task via MCP (status, fields)."""
+        mcp_update_task(task)
+
+    @staticmethod
+    def delete_task(task_id: str) -> None:
+        """Delete a task via MCP."""
+        mcp_delete_task(task_id)
+
+    @staticmethod
+    def set_status(task_id: str, status: TaskStatus) -> None:
+        """Set the status of a task (COMPLETED/PENDING)."""
+        task = TaskAgent.get_task(task_id)
+        task.status = status
+        TaskAgent.update_task(task)
+
+    @staticmethod
+    def create_tasks(tasks: List[Task]) -> None:
+        """Create multiple tasks via MCP."""
+        for t in tasks:
+            mcp_create_task(
+                title=t.title,
+                deadline=t.deadline,
+                description=t.description,
+                priority=t.priority.name,
+                estimated_hours=t.estimated_hours,
+            )

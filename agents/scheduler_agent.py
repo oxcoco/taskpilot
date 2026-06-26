@@ -14,7 +14,10 @@ The result is returned as a ``dict`` that callers can render as they wish.
 """
 
 import datetime
+from datetime import time
 from typing import List, Dict, Any, Optional
+
+from ..mcp.calendar_server import create_event
 
 
 class SchedulerAgent:
@@ -108,4 +111,25 @@ class SchedulerAgent:
             schedule.setdefault(day.isoformat(), []).append(task["title"])
             hours_used[day] = hours_used.get(day, 0.0) + est
             next_day = day
+        SchedulerAgent._persist_schedule(schedule)
         return schedule
+
+    @staticmethod
+    def _persist_schedule(schedule: Dict[str, List[str]]) -> None:
+        """Create calendar events for each scheduled task.
+
+        For each date, each task title gets a placeholder event from 09:00 to 17:00.
+        """
+        for date_str, titles in schedule.items():
+            try:
+                day_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+            except Exception:
+                continue
+            for title in titles:
+                start_dt = datetime.datetime.combine(day_date, time(hour=9))
+                end_dt = datetime.datetime.combine(day_date, time(hour=17))
+                try:
+                    create_event(title=title, start=start_dt, end=end_dt)
+                except Exception:
+                    # Ignore failures to keep scheduler robust
+                    pass
