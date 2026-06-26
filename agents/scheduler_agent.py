@@ -1,0 +1,111 @@
+# taskpilot/agents/scheduler_agent.py
+"""SchedulerAgent – creates a simple daily schedule.
+
+The schedule is a mapping from a date string (YYYY‑MM‑DD) to a list of task
+titles.  Workdays are fixed to 09:00–17:00 (8 hours).  Each task is assumed to
+require ``estimated_hours`` (default 1 hour if not provided).
+
+The algorithm is straightforward:
+1. Iterate over the tasks in priority order (high → low).
+2. Fill the current day until the 8‑hour limit is reached.
+3. When the limit is exceeded, start a new day.
+
+The result is returned as a ``dict`` that callers can render as they wish.
+"""
+
+import datetime
+from typing import List, Dict, Any, Optional
+
+
+class SchedulerAgent:
+    """Generate a week‑long schedule from a list of task dictionaries.
+
+    Expected input format (as produced by ``PriorityAgent``)::
+
+        [{"title": "Write report", "deadline": "Friday", "priority": "HIGH", "estimated_hours": 2}, ...]
+
+    Only ``title`` and ``estimated_hours`` are required for scheduling; missing
+    ``estimated_hours`` defaults to ``1.0``.
+    """
+
+    WORKDAY_HOURS = 8
+
+    @staticmethod
+    def generate_schedule(tasks: List[Dict[str, Any]]) -> Dict[str, List[str]]:
+        """Generate a schedule respecting deadlines and daily capacity.
+
+        Tasks are assumed to be ordered by priority (high → low). The function
+        first schedules tasks that have a concrete deadline, placing them on the
+        specified day or the next available day if the day is full. After all
+        deadline‑bound tasks are placed, remaining tasks without a deadline are
+        scheduled sequentially starting from the earliest day that still has
+        free capacity.
+        """
+        schedule: Dict[str, List[str]] = {}
+        # Track used hours per concrete date
+        hours_used: Dict[datetime.date, float] = {}
+        today = datetime.date.today()
+
+        def parse_deadline(word: Optional[str]) -> datetime.date:
+            """Convert a deadline word (or ISO date) to a concrete date."""
+            if not word:
+                return today
+            # Try ISO date first (YYYY-MM-DD)
+            try:
+                return datetime.datetime.strptime(word, "%Y-%m-%d").date()
+            except Exception:
+                pass
+            w = word.lower()
+            if w == "today":
+                return today
+            if w == "tomorrow":
+                return today + datetime.timedelta(days=1)
+            weekdays = {
+                "monday": 0,
+                "tuesday": 1,
+                "wednesday": 2,
+                "thursday": 3,
+                "friday": 4,
+                "saturday": 5,
+                "sunday": 6,
+            }
+            if w in weekdays:
+                target = weekdays[w]
+                days_ahead = (target - today.weekday()) % 7
+                return today + datetime.timedelta(days=days_ahead)
+            return today
+
+        def find_day(start: datetime.date, est: float) -> datetime.date:
+            """Return the first day on or after *start* with enough free hours."""
+            day = start
+            while True:
+                used = hours_used.get(day, 0.0)
+                if used + est <= SchedulerAgent.WORKDAY_HOURS:
+                    return day
+                day += datetime.timedelta(days=1)
+
+        # First schedule tasks with deadlines
+        latest_day = today
+        for task in tasks:
+            deadline = task.get("deadline")
+            if not deadline:
+                continue
+            est = float(task.get("estimated_hours", 1.0))
+            target = parse_deadline(deadline)
+            day = find_day(target, est)
+            schedule.setdefault(day.isoformat(), []).append(task["title"])
+            hours_used[day] = hours_used.get(day, 0.0) + est
+            if day > latest_day:
+                latest_day = day
+
+        # Then schedule tasks without deadlines
+        next_day = latest_day
+        for task in tasks:
+            if task.get("deadline"):
+                continue
+            est = float(task.get("estimated_hours", 1.0))
+            day = find_day(next_day, est)
+            schedule.setdefault(day.isoformat(), []).append(task["title"])
+            hours_used[day] = hours_used.get(day, 0.0) + est
+            next_day = day
+        return schedule
