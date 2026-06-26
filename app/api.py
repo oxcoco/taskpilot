@@ -148,11 +148,50 @@ def get_schedule():
 @app.route("/api/check_deadlines", methods=["POST"])
 def trigger_deadline_check():
     try:
-        f = io.StringIO()
-        with contextlib.redirect_stdout(f):
-            check_deadlines()
-        output = f.getvalue()
-        return jsonify({"output": output}), 200
+        import datetime
+        from taskpilot.database.db import list_tasks
+        from taskpilot.database.models import TaskStatus
+
+        today = datetime.date.today()
+        next_week = today + datetime.timedelta(days=3)
+        overdue = []
+        upcoming = []
+        completed = []
+
+        for task in list_tasks():
+            if not task.deadline:
+                continue
+            try:
+                deadline_date = datetime.datetime.strptime(task.deadline, "%Y-%m-%d").date()
+            except ValueError:
+                word = task.deadline.lower()
+                if word == "today":
+                    deadline_date = today
+                elif word == "tomorrow":
+                    deadline_date = today + datetime.timedelta(days=1)
+                else:
+                    continue
+
+            task_data = {
+                "id": task.id,
+                "title": task.title,
+                "deadline": task.deadline,
+                "priority": task.priority.value,
+                "status": task.status.value
+            }
+
+            if task.status == TaskStatus.COMPLETED:
+                completed.append(task_data)
+            elif deadline_date < today:
+                overdue.append(task_data)
+            elif today <= deadline_date <= next_week:
+                upcoming.append(task_data)
+
+        return jsonify({
+            "overdue": overdue,
+            "upcoming": upcoming,
+            "completed": completed
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

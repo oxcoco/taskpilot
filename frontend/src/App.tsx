@@ -20,11 +20,19 @@ interface ToastMessage {
   text: string;
 }
 
+interface DeadlineInfo {
+  id: string;
+  title: string;
+  deadline: string;
+  priority: string;
+  status: string;
+}
+
 function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [schedule, setSchedule] = useState<Schedule>({});
   const [weeklyPlan, setWeeklyPlan] = useState<string>('');
-  const [deadlineOutput, setDeadlineOutput] = useState<string>('');
+  const [deadlineData, setDeadlineData] = useState<{ overdue: DeadlineInfo[]; upcoming: DeadlineInfo[]; completed: DeadlineInfo[] } | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Modals
@@ -101,7 +109,7 @@ function App() {
       const res = await fetch(`${API_BASE}/check_deadlines`, { method: 'POST' });
       if (!res.ok) throw new Error('Deadline check failed');
       const data = await res.json();
-      setDeadlineOutput(data.output);
+      setDeadlineData(data);
       showToast('Deadlines checked');
     } catch (err: any) {
       showToast(`Error: ${err.message}`);
@@ -239,8 +247,91 @@ function App() {
     fetchTasks();
   }, []);
 
-  const pendingTasks = tasks.filter((t) => t.status !== 'COMPLETED');
-  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
+  const sortTasksByDeadline = (a: Task, b: Task) => {
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    const parseDeadline = (dl: string) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const lower = dl.toLowerCase();
+      if (lower === 'today') return today.getTime();
+      if (lower === 'tomorrow') {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        return tomorrow.getTime();
+      }
+      const parsed = Date.parse(dl);
+      if (!isNaN(parsed)) return parsed;
+      return Infinity;
+    };
+    return parseDeadline(a.deadline) - parseDeadline(b.deadline);
+  };
+
+  const parseLocalDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const isOverdue = (task: Task) => {
+    if (!task.deadline || task.status === "COMPLETED") return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let deadline: Date;
+
+    switch (task.deadline.toLowerCase()) {
+      case "today":
+        return false;
+
+      case "tomorrow":
+        return false;
+
+      default:
+        deadline = parseLocalDate(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return deadline < today;
+    }
+  };
+
+  const pendingTasks = tasks.filter((t) => t.status !== 'COMPLETED').sort(sortTasksByDeadline);
+  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED').sort(sortTasksByDeadline);
+
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return lines.map((line, idx) => {
+      if (line.startsWith('### ')) {
+        return <h4 key={idx} style={{ marginTop: '14px', marginBottom: '6px', color: 'var(--accent-secondary)', fontFamily: 'var(--heading)' }}>{line.slice(4)}</h4>;
+      }
+      if (line.startsWith('## ')) {
+        return <h3 key={idx} style={{ marginTop: '18px', marginBottom: '8px', color: 'var(--text-primary)', fontFamily: 'var(--heading)' }}>{line.slice(3)}</h3>;
+      }
+      if (line.startsWith('# ')) {
+        return <h2 key={idx} style={{ marginTop: '22px', marginBottom: '10px', color: 'var(--text-primary)', fontFamily: 'var(--heading)' }}>{line.slice(2)}</h2>;
+      }
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        let content = line.slice(2);
+        const boldRegex = /\*\*(.*?)\*\*/g;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+        while ((match = boldRegex.exec(content)) !== null) {
+          if (match.index > lastIndex) {
+            parts.push(content.substring(lastIndex, match.index));
+          }
+          parts.push(<strong key={match.index} style={{ color: 'var(--text-primary)' }}>{match[1]}</strong>);
+          lastIndex = boldRegex.lastIndex;
+        }
+        if (lastIndex < content.length) {
+          parts.push(content.substring(lastIndex));
+        }
+        return <li key={idx} style={{ marginLeft: '16px', marginBottom: '4px', fontSize: '13px', listStyleType: 'disc' }}>{parts.length > 0 ? parts : content}</li>;
+      }
+      if (line.trim() === '') return <div key={idx} style={{ height: '6px' }} />;
+      return <p key={idx} style={{ marginBottom: '8px', fontSize: '13px' }}>{line}</p>;
+    });
+  };
 
   return (
     <div className="app-container">
@@ -357,7 +448,7 @@ function App() {
                       </div>
                       <div className="task-actions">
                         <button className="btn btn-danger btn-icon-only" onClick={() => deleteTask(task.id)}>
-                          🗑️
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -387,15 +478,25 @@ function App() {
                   <div className={`schedule-day-card ${day === 'Completed' ? 'completed-day' : ''}`} key={day}>
                     <h4 className="schedule-day-title" style={day === 'Completed' ? { color: 'var(--status-completed)' } : {}}>{day}</h4>
                     <div className="schedule-item-list">
-                      {items.map((item, idx) => (
-                        <div
-                          className="schedule-task-title"
-                          style={day === 'Completed' ? { borderLeftColor: 'var(--status-completed)', textDecoration: 'line-through', opacity: 0.7 } : {}}
-                          key={idx}
-                        >
-                          {item}
-                        </div>
-                      ))}
+                      {items.map((item, idx) => {
+                        const task = tasks.find(t => t.title === item);
+                        const overdue = task ? isOverdue(task) : false;
+                        let itemStyle: React.CSSProperties = {};
+                        if (day === 'Completed') {
+                          itemStyle = { borderLeftColor: 'var(--status-completed)', textDecoration: 'line-through', opacity: 0.7 };
+                        } else if (overdue) {
+                          itemStyle = { borderLeftColor: 'var(--priority-high)' };
+                        }
+                        return (
+                          <div
+                            className={`schedule-task-title ${overdue ? 'overdue-item' : ''}`}
+                            style={itemStyle}
+                            key={idx}
+                          >
+                            {item}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -414,7 +515,9 @@ function App() {
           <section className="panel-card">
             <div className="panel-title">Weekly Assistant Plan</div>
             {weeklyPlan ? (
-              <pre className="weekly-plan-text">{weeklyPlan}</pre>
+              <div className="weekly-plan-text" style={{ padding: '20px', lineHeight: '1.6' }}>
+                {renderMarkdown(weeklyPlan)}
+              </div>
             ) : (
               <div style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>
                 Click "Weekly Plan" at the top to generate a personalized weekly summary using GPT-4.
@@ -425,8 +528,56 @@ function App() {
           {/* Deadline Check Status */}
           <section className="panel-card">
             <div className="panel-title">Deadline Status</div>
-            {deadlineOutput ? (
-              <pre className="weekly-plan-text" style={{ maxHeight: '200px' }}>{deadlineOutput}</pre>
+            {deadlineData ? (
+              <div className="weekly-plan-text" style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {deadlineData.overdue.length > 0 && (
+                  <div>
+                    <h4 style={{ color: 'var(--priority-high)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                      Overdue Tasks
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {deadlineData.overdue.map((t) => (
+                        <div key={t.id} style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}>
+                          <strong>{t.title}</strong> — Due: {t.deadline}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {deadlineData.upcoming.length > 0 && (
+                  <div>
+                    <h4 style={{ color: 'var(--priority-medium)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                      Upcoming Tasks (Next 3 Days)
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {deadlineData.upcoming.map((t) => (
+                        <div key={t.id} style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}>
+                          <strong>{t.title}</strong> — Due: {t.deadline}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {deadlineData.completed.length > 0 && (
+                  <div>
+                    <h4 style={{ color: 'var(--priority-low)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                      Completed Tasks with Deadlines
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {deadlineData.completed.map((t) => (
+                        <div key={t.id} style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '8px 12px', borderRadius: '8px', fontSize: '13px', textDecoration: 'line-through', opacity: 0.7 }}>
+                          <strong>{t.title}</strong> — Due: {t.deadline}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {deadlineData.overdue.length === 0 && deadlineData.upcoming.length === 0 && deadlineData.completed.length === 0 && (
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                    No tasks with deadlines found.
+                  </div>
+                )}
+              </div>
             ) : (
               <div style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>
                 Click "Check Deadlines" at the top to view overdue and upcoming tasks.

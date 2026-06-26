@@ -130,7 +130,7 @@ def generate_weekly_plan() -> str:
         return f"Error generating plan via OpenAI: {e}\n\n" + _fallback_plan(tasks)
 
     def _fallback_plan(tasks: List[Task]) -> str:
-        """Deterministic plain‑text fallback plan (same logic as earlier version)."""
+        """Deterministic markdown fallback plan (same logic as earlier version)."""
         grouped = _group_tasks_by_day(tasks)
         today = datetime.date.today()
         # Build mapping of weekday names to ISO dates for the next 7 days
@@ -140,7 +140,7 @@ def generate_weekly_plan() -> str:
             .isoformat()
             for i in range(7)
         }
-        lines = ["=== Weekly Plan ==="]
+        lines = ["# Weekly Plan"]
         for day in [
             "Monday",
             "Tuesday",
@@ -154,14 +154,14 @@ def generate_weekly_plan() -> str:
             if entries:
                 date_iso = week_dates.get(day, "")
                 header = f"{day} ({date_iso})" if date_iso else day
-                lines.append(header + ":")
+                lines.append(f"## {header}")
                 for t in entries:
-                    lines.append(f"  - {t}")
+                    lines.append(f"- {t}")
         misc = grouped.get("No specific day", [])
         if misc:
-            lines.append("Other tasks (no specific day):")
+            lines.append("## Other tasks (no specific day)")
             for t in misc:
-                lines.append(f"  - {t}")
+                lines.append(f"- {t}")
         return "\n".join(lines)
 
 
