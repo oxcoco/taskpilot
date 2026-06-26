@@ -1,6 +1,6 @@
 import datetime
 from ..database.db import list_tasks
-from ..database.models import Task
+from ..database.models import Task, TaskStatus
 
 
 def check_deadlines() -> None:
@@ -15,6 +15,7 @@ def check_deadlines() -> None:
     next_week = today + datetime.timedelta(days=3)
     overdue = []
     upcoming = []
+    completed = []
 
     for task in list_tasks():
         if not task.deadline:
@@ -33,7 +34,9 @@ def check_deadlines() -> None:
                 # Unrecognized format – skip
                 continue
 
-        if deadline_date < today:
+        if task.status == TaskStatus.COMPLETED:
+            completed.append(task)
+        elif deadline_date < today:
             overdue.append(task)
         elif today <= deadline_date <= next_week:
             upcoming.append(task)
@@ -48,4 +51,9 @@ def check_deadlines() -> None:
     if upcoming:
         print("[DeadlineCheck] Upcoming tasks (next 7 days):")
         for t in upcoming:
+            print(f"  - {t.title} (ID: {t.id}) deadline: {t.deadline}")
+
+    if completed:
+        print("[DeadlineCheck] Completed tasks with deadlines:")
+        for t in completed:
             print(f"  - {t.title} (ID: {t.id}) deadline: {t.deadline}")

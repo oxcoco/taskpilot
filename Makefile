@@ -2,7 +2,7 @@ VENV = .venv
 PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 
-.PHONY: venv install run test clean
+.PHONY: venv install run test clean frontend
 
 # Create virtual environment
 venv:
@@ -21,5 +21,6 @@ test: install
 	PYTHONPATH=$(CURDIR):$(CURDIR)/.. $(VENV)/bin/pytest -q
 
 # Clean the virtual environment and database artifacts
-clean:
-	rm -rf $(VENV) sqlite.db __pycache__
+frontend: install
+	PYTHONPATH=$(CURDIR):$(CURDIR)/.. $(PYTHON) -m taskpilot.app.api & \
+	cd frontend && npm install && npm run dev
