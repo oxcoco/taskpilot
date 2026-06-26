@@ -86,6 +86,10 @@ class PriorityAgent:
             task_copy["priority"] = priority.value
             ranked.append(task_copy)
         # Sort by priority: HIGH > MEDIUM > LOW
-        order = {TaskPriority.HIGH.value: 0, TaskPriority.MEDIUM.value: 1, TaskPriority.LOW.value: 2}
+        order = {
+            TaskPriority.HIGH.value: 0,
+            TaskPriority.MEDIUM.value: 1,
+            TaskPriority.LOW.value: 2,
+        }
         ranked.sort(key=lambda t: order.get(t.get("priority"), 3))
         return ranked

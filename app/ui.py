@@ -12,6 +12,7 @@ import uuid
 from ..agents.task_agent import TaskAgent
 from ..database.db import create_tables
 from ..database.models import TaskStatus, TaskPriority
+
 # Ensure the SQLite tables exist before any operation.
 create_tables()  # keep table creation but DB functions are no longer imported directly
 from ..agents.scheduler_agent import SchedulerAgent
@@ -20,6 +21,7 @@ from ..mcp.todo_server import create_task as mcp_create_task
 from ..skills.deadline_check import check_deadlines
 from ..skills.weekly_plan import generate_weekly_plan
 from ..agents.priority_agent import PriorityAgent
+
 
 def delete_all_tasks() -> None:
     """Delete every task in the database."""
@@ -52,8 +54,13 @@ def list_all_tasks() -> List[Dict[str, Any]]:
     return [t.to_dict() for t in TaskAgent.list_tasks()]
 
 
-def add_task_interactive(title: str, description: str = "", deadline: str = None,
-                          priority: str = "MEDIUM", estimated_hours: float = 1.0) -> None:
+def add_task_interactive(
+    title: str,
+    description: str = "",
+    deadline: str = None,
+    priority: str = "MEDIUM",
+    estimated_hours: float = 1.0,
+) -> None:
     """Create and store a new task via the MCP todo server using TaskAgent parsing.
     The provided fields are concatenated into a simple natural‑language description
     which TaskAgent parses into one or more :class:`Task` objects. Each resulting

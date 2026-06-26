@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 import openai
 
 from ..database.db import list_tasks
-from ..database.models import Task
+from ..database.models import Task, TaskStatus
+
 
 # Load environment variables from .env file located at project root
 def _load_openai_key() -> str:
@@ -34,7 +35,9 @@ def _group_tasks_by_day(tasks: List[Task]) -> dict:
     Returns a dict mapping weekday names (e.g., "Monday") to a list of task titles.
     """
     today = datetime.date.today()
-    week_map = {i: (today + datetime.timedelta(days=i)).strftime("%A") for i in range(7)}
+    week_map = {
+        i: (today + datetime.timedelta(days=i)).strftime("%A") for i in range(7)
+    }
     grouped = {day: [] for day in week_map.values()}
     grouped["No specific day"] = []
     for task in tasks:
@@ -65,16 +68,14 @@ def _group_tasks_by_day(tasks: List[Task]) -> dict:
 def _format_tasks_for_prompt(tasks: List[Task]) -> str:
     """Create a concise markdown‑style representation of tasks for the LLM.
 
-    Each line includes title, deadline (ISO or natural word), priority and
-    estimated hours. This gives the model enough context to generate a useful
-    weekly plan.
+    Each line includes title, deadline (ISO or natural word), priority, estimated hours, and status.
     """
     lines = []
     for t in tasks:
         deadline = t.deadline or "No deadline"
+        status = t.status.value if hasattr(t, "status") else "UNKNOWN"
         lines.append(
-            f"- **{t.title}** (deadline: {deadline}, priority: {t.priority.name}, "
-            f"hours: {t.estimated_hours})"
+            f"- **{t.title}** (deadline: {deadline}, priority: {t.priority.name}, hours: {t.estimated_hours}, status: {status})"
         )
     return "\n".join(lines)
 
@@ -93,9 +94,9 @@ def generate_weekly_plan() -> str:
     # The OpenAI client reads the key from the environment automatically
     client = openai.OpenAI()
 
-    tasks = list_tasks()
-    if not tasks:
-        return "No tasks found for this week."
+    # Load tasks and exclude completed ones
+    all_tasks = list_tasks()
+    tasks = [t for t in all_tasks if t.status != TaskStatus.COMPLETED]
 
     # Add today's date (ISO) for the LLM context
     today_iso = datetime.date.today().isoformat()
@@ -107,13 +108,17 @@ def generate_weekly_plan() -> str:
         "Group tasks by the day they should be worked on, taking into account their deadlines, priorities (HIGH > MEDIUM > LOW), and estimated hours. "
         "Do not assign specific weekday names (Monday, Tuesday, etc.) unless the task deadline explicitly falls on that day; otherwise refer to dates or say 'Day X'. "
         "If a task has no specific deadline, place it under an 'Other' section. Additionally, suggest which tasks to tackle first each day, especially when multiple tasks are present. "
+        "Tasks marked as COMPLETED are already done and should not be scheduled again. "
         "\n\nTasks:\n" + _format_tasks_for_prompt(tasks)
     )
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that creates weekly plans."},
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that creates weekly plans.",
+                },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.7,
@@ -124,15 +129,27 @@ def generate_weekly_plan() -> str:
         # Fallback to deterministic plan if the API fails
         return f"Error generating plan via OpenAI: {e}\n\n" + _fallback_plan(tasks)
 
-
     def _fallback_plan(tasks: List[Task]) -> str:
         """Deterministic plain‑text fallback plan (same logic as earlier version)."""
         grouped = _group_tasks_by_day(tasks)
         today = datetime.date.today()
         # Build mapping of weekday names to ISO dates for the next 7 days
-        week_dates = { (today + datetime.timedelta(days=i)).strftime("%A"): (today + datetime.timedelta(days=i)).isoformat() for i in range(7) }
+        week_dates = {
+            (today + datetime.timedelta(days=i))
+            .strftime("%A"): (today + datetime.timedelta(days=i))
+            .isoformat()
+            for i in range(7)
+        }
         lines = ["=== Weekly Plan ==="]
-        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+        for day in [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]:
             entries = grouped.get(day, [])
             if entries:
                 date_iso = week_dates.get(day, "")
@@ -146,5 +163,6 @@ def generate_weekly_plan() -> str:
             for t in misc:
                 lines.append(f"  - {t}")
         return "\n".join(lines)
+
 
 __all__ = ["generate_weekly_plan"]

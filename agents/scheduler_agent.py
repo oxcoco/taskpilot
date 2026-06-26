@@ -117,6 +117,7 @@ class SchedulerAgent:
             try:
                 from ..agents.task_agent import TaskAgent
                 from ..database.models import Task
+
                 updated_task = Task(**task)
                 TaskAgent.update_task(updated_task)
             except Exception:

@@ -2,6 +2,7 @@ import datetime
 from ..database.db import list_tasks
 from ..database.models import Task
 
+
 def check_deadlines() -> None:
     """Print tasks whose deadline is before today and upcoming tasks for the next 7 days.
 
@@ -31,7 +32,7 @@ def check_deadlines() -> None:
             else:
                 # Unrecognized format – skip
                 continue
-        
+
         if deadline_date < today:
             overdue.append(task)
         elif today <= deadline_date <= next_week:

@@ -9,6 +9,7 @@ if PROJECT_ROOT not in sys.path:
 
 from taskpilot.database.db import create_tables
 
+
 @pytest.fixture(autouse=True)
 def clean_db():
     """Create fresh tables and wipe any existing data before each test."""

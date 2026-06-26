@@ -7,6 +7,7 @@ sys.path.append(project_root)
 
 from taskpilot.app.ui import add_task_interactive, list_all_tasks, delete_all_tasks
 
+
 def test_deadline_conversion():
     # Clean slate
     delete_all_tasks()
@@ -20,10 +21,15 @@ def test_deadline_conversion():
     # Verify deadlines are stored as ISO strings
     for task in tasks:
         if task["title"] == "Task Today":
-            assert task["deadline"] == today_iso, f"Expected {today_iso}, got {task['deadline']}"
+            assert (
+                task["deadline"] == today_iso
+            ), f"Expected {today_iso}, got {task['deadline']}"
         if task["title"] == "Task Tomorrow":
-            assert task["deadline"] == tomorrow_iso, f"Expected {tomorrow_iso}, got {task['deadline']}"
+            assert (
+                task["deadline"] == tomorrow_iso
+            ), f"Expected {tomorrow_iso}, got {task['deadline']}"
     print("All deadline conversion tests passed.")
+
 
 if __name__ == "__main__":
     test_deadline_conversion()

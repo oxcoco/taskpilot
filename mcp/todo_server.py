@@ -6,13 +6,25 @@ These functions are intended to be called by higher‑level agents (TaskAgent,
 PriorityAgent, SchedulerAgent) before persisting data to the SQLite database.
 """
 
-from ..database.db import add_task as db_add_task, update_task as db_update_task, delete_task as db_delete_task, list_tasks as db_list_tasks, get_task as db_get_task
+from ..database.db import (
+    add_task as db_add_task,
+    update_task as db_update_task,
+    delete_task as db_delete_task,
+    list_tasks as db_list_tasks,
+    get_task as db_get_task,
+)
 from ..database.models import Task, TaskStatus, TaskPriority
 import uuid
 from typing import List
 
 
-def create_task(title: str, deadline: str | None = None, description: str = "", priority: str = "MEDIUM", estimated_hours: float = 1.0) -> Task:
+def create_task(
+    title: str,
+    deadline: str | None = None,
+    description: str = "",
+    priority: str = "MEDIUM",
+    estimated_hours: float = 1.0,
+) -> Task:
     """Create a new task and store it in the database.
 
     Returns the created :class:`Task` instance.

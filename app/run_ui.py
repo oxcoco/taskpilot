@@ -105,12 +105,22 @@ def _menu() -> None:
         elif choice == "2":
             title = input("Title: ").strip()
             desc = input("Description (optional): ").strip()
-            deadline = input("Deadline (e.g. 2023-12-31 or today/tomorrow): ").strip() or None
-            priority = input("Priority [HIGH/MEDIUM/LOW] (default MEDIUM): ").strip() or "MEDIUM"
+            deadline = (
+                input("Deadline (e.g. 2023-12-31 or today/tomorrow): ").strip() or None
+            )
+            priority = (
+                input("Priority [HIGH/MEDIUM/LOW] (default MEDIUM): ").strip()
+                or "MEDIUM"
+            )
             est = input("Estimated hours (default 1.0): ").strip()
             est_val = float(est) if est else 1.0
-            add_task_interactive(title, description=desc, deadline=deadline,
-                                 priority=priority, estimated_hours=est_val)
+            add_task_interactive(
+                title,
+                description=desc,
+                deadline=deadline,
+                priority=priority,
+                estimated_hours=est_val,
+            )
             print("Task added.")
         elif choice == "3":
             tasks = list_all_tasks()
@@ -157,7 +167,11 @@ def _menu() -> None:
             mark_undone(task_id)
             print("Task marked as pending.")
         elif choice == "7":
-            confirm = input("Are you sure you want to delete ALL tasks? (yes/no): ").strip().lower()
+            confirm = (
+                input("Are you sure you want to delete ALL tasks? (yes/no): ")
+                .strip()
+                .lower()
+            )
             if confirm == "yes":
                 delete_all_tasks()
                 print("All tasks deleted.")

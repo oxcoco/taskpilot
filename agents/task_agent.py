@@ -13,7 +13,14 @@ import datetime
 from typing import List
 
 from ..database.models import Task, TaskPriority, TaskStatus
-from ..mcp.todo_server import create_task as mcp_create_task, update_task as mcp_update_task, delete_task as mcp_delete_task, get_task as mcp_get_task, list_tasks as mcp_list_tasks
+from ..mcp.todo_server import (
+    create_task as mcp_create_task,
+    update_task as mcp_update_task,
+    delete_task as mcp_delete_task,
+    get_task as mcp_get_task,
+    list_tasks as mcp_list_tasks,
+)
+
 
 def _normalize_deadline(deadline: str | None) -> str | None:
     """Convert a deadline string (e.g., "today", "tomorrow", weekday, ISO) to an ISO date.
@@ -57,7 +64,6 @@ def _normalize_deadline(deadline: str | None) -> str | None:
     return deadline
 
 
-
 class TaskAgent:
     """Parse free‑form text into :class:`Task` objects.
 
@@ -72,7 +78,9 @@ class TaskAgent:
     def _parse_fragment(fragment: str) -> Task:
         fragment = fragment.strip()
         # Detect "by <deadline>" at the end.
-        match = re.search(r"(?P<title>.+?)\s+by\s+(?P<deadline>\w+)$", fragment, flags=re.IGNORECASE)
+        match = re.search(
+            r"(?P<title>.+?)\s+by\s+(?P<deadline>\w+)$", fragment, flags=re.IGNORECASE
+        )
         if match:
             title = match.group("title").strip()
             raw_deadline = match.group("deadline").strip()
@@ -102,7 +110,6 @@ class TaskAgent:
             if frag.strip():
                 tasks.append(self._parse_fragment(frag))
         return tasks
-
 
     @staticmethod
     def list_tasks() -> List[Task]:
@@ -140,5 +147,6 @@ class TaskAgent:
         This avoids the UUID regeneration performed by the MCP create_task façade.
         """
         from ..database.db import add_task as db_add_task
+
         for t in tasks:
             db_add_task(t)

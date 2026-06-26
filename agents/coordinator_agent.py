@@ -80,5 +80,6 @@ class CoordinatorAgent:
         schedule = self.scheduler_agent.generate_schedule(ranked)
         return schedule
 
+
 # Export a ready‑to‑use instance for simple imports.
 coordinator = CoordinatorAgent()

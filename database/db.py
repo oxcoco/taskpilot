@@ -113,8 +113,7 @@ def update_task(task: Task) -> None:
 
 
 def delete_task(task_id: str) -> None:
-    """Remove a task from the database by its ``id``.
-    """
+    """Remove a task from the database by its ``id``."""
     with _connect() as conn:
         conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
         conn.commit()
@@ -133,8 +132,7 @@ def get_task(task_id: str) -> Optional[Task]:
 
 
 def list_tasks() -> List[Task]:
-    """Return a list of all stored tasks ordered by ``deadline``.
-    """
+    """Return a list of all stored tasks ordered by ``deadline``."""
     with _connect() as conn:
         rows = conn.execute("SELECT * FROM tasks ORDER BY deadline").fetchall()
         return [Task.from_dict(dict(r)) for r in rows]

@@ -14,7 +14,9 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 # Use the same database file as the core DB layer.
-_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "database", "sqlite.db"))
+_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "database", "sqlite.db")
+)
 
 
 def _connect() -> sqlite3.Connection:
@@ -38,11 +40,14 @@ def _ensure_events_table() -> None:
         )
         conn.commit()
 
+
 # Ensure the table exists at import time.
 _ensure_events_table()
 
 
-def create_event(title: str, start: datetime, end: datetime, description: str = "") -> Dict[str, Any]:
+def create_event(
+    title: str, start: datetime, end: datetime, description: str = ""
+) -> Dict[str, Any]:
     """Create a new calendar event.
 
     Returns a dictionary representation of the created event.
@@ -56,7 +61,13 @@ def create_event(title: str, start: datetime, end: datetime, description: str = 
             (event_id, title, start.isoformat(), end.isoformat(), description),
         )
         conn.commit()
-    return {"id": event_id, "title": title, "start": start, "end": end, "description": description}
+    return {
+        "id": event_id,
+        "title": title,
+        "start": start,
+        "end": end,
+        "description": description,
+    }
 
 
 def update_event(event_id: str, **updates: Any) -> None:

@@ -9,6 +9,7 @@ if PROJECT_ROOT not in sys.path:
 from taskpilot.agents.scheduler_agent import SchedulerAgent
 from taskpilot.agents.task_agent import TaskAgent
 
+
 def test_schedule_with_various_deadlines():
     # Create tasks with natural language deadlines
     raw = [
@@ -34,6 +35,7 @@ def test_schedule_with_various_deadlines():
     assert tomorrow_iso in schedule
     # Monday may be same week or next depending on today; just ensure a date string exists
     assert any(isinstance(date, str) for date in schedule.keys())
+
 
 def test_schedule_capacity_limit():
     # Create enough tasks to exceed one workday (8h)
