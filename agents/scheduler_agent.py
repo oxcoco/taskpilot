@@ -50,7 +50,12 @@ class SchedulerAgent:
         today = datetime.date.today()
 
         def parse_deadline(word: Optional[str]) -> datetime.date:
-            """Convert a deadline word (or ISO date) to a concrete date."""
+            """Convert a deadline word (or ISO date) to a concrete date.
+
+            Handles ISO dates (YYYY-MM-DD), "today", "tomorrow", weekday names
+            (e.g., "monday"), and phrases like "next monday".
+            """
+            today = datetime.date.today()
             if not word:
                 return today
             # Try ISO date first (YYYY-MM-DD)
@@ -58,7 +63,7 @@ class SchedulerAgent:
                 return datetime.datetime.strptime(word, "%Y-%m-%d").date()
             except Exception:
                 pass
-            w = word.lower()
+            w = word.lower().strip()
             if w == "today":
                 return today
             if w == "tomorrow":
@@ -72,10 +77,20 @@ class SchedulerAgent:
                 "saturday": 5,
                 "sunday": 6,
             }
+            # Direct weekday name (e.g., "monday")
             if w in weekdays:
                 target = weekdays[w]
                 days_ahead = (target - today.weekday()) % 7
-                return today + datetime.timedelta(days=days_ahead)
+                return today + datetime.timedelta(days_ahead)
+            # "next <weekday>" handling
+            if w.startswith("next "):
+                day_name = w.split(" ", 1)[1]
+                if day_name in weekdays:
+                    target = weekdays[day_name]
+                    days_ahead = (target - today.weekday()) % 7
+                    days_ahead = days_ahead or 7
+                    return today + datetime.timedelta(days_ahead)
+            # Fallback
             return today
 
         def find_day(start: datetime.date, est: float) -> datetime.date:
@@ -95,6 +110,18 @@ class SchedulerAgent:
                 continue
             est = float(task.get("estimated_hours", 1.0))
             target = parse_deadline(deadline)
+            # Convert deadline to ISO string for storage/display
+            iso_deadline = target.isoformat()
+            task["deadline"] = iso_deadline
+            # Persist updated deadline back to DB
+            try:
+                from ..agents.task_agent import TaskAgent
+                from ..database.models import Task
+                updated_task = Task(**task)
+                TaskAgent.update_task(updated_task)
+            except Exception:
+                pass
+
             day = find_day(target, est)
             schedule.setdefault(day.isoformat(), []).append(task["title"])
             hours_used[day] = hours_used.get(day, 0.0) + est

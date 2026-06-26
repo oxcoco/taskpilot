@@ -9,10 +9,53 @@ from __future__ import annotations
 
 import re
 import uuid
+import datetime
 from typing import List
 
 from ..database.models import Task, TaskPriority, TaskStatus
 from ..mcp.todo_server import create_task as mcp_create_task, update_task as mcp_update_task, delete_task as mcp_delete_task, get_task as mcp_get_task, list_tasks as mcp_list_tasks
+
+def _normalize_deadline(deadline: str | None) -> str | None:
+    """Convert a deadline string (e.g., "today", "tomorrow", weekday, ISO) to an ISO date.
+
+    Returns the ISO string (YYYY‑MM‑DD) if parsing succeeds, otherwise returns the original value.
+    """
+    if not deadline:
+        return None
+    today = datetime.date.today()
+    w = deadline.lower().strip()
+    # ISO format
+    try:
+        return datetime.datetime.strptime(w, "%Y-%m-%d").date().isoformat()
+    except Exception:
+        pass
+    if w == "today":
+        return today.isoformat()
+    if w == "tomorrow":
+        return (today + datetime.timedelta(days=1)).isoformat()
+    weekdays = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
+    }
+    if w in weekdays:
+        target = weekdays[w]
+        days_ahead = (target - today.weekday()) % 7
+        return (today + datetime.timedelta(days=days_ahead)).isoformat()
+    if w.startswith("next "):
+        day_name = w.split(" ", 1)[1]
+        if day_name in weekdays:
+            target = weekdays[day_name]
+            days_ahead = (target - today.weekday()) % 7
+            days_ahead = days_ahead or 7
+            return (today + datetime.timedelta(days=days_ahead)).isoformat()
+    # fallback
+    return deadline
+
 
 
 class TaskAgent:
@@ -32,7 +75,8 @@ class TaskAgent:
         match = re.search(r"(?P<title>.+?)\s+by\s+(?P<deadline>\w+)$", fragment, flags=re.IGNORECASE)
         if match:
             title = match.group("title").strip()
-            deadline = match.group("deadline").strip()
+            raw_deadline = match.group("deadline").strip()
+            deadline = _normalize_deadline(raw_deadline)
         else:
             title = fragment
             deadline = None
@@ -66,12 +110,9 @@ class TaskAgent:
         return mcp_list_tasks()
 
     @staticmethod
-    def get_task(task_id: str) -> Task:
-        """Retrieve a single task via MCP."""
-        task = mcp_get_task(task_id)
-        if not task:
-            raise ValueError(f"Task {task_id} not found")
-        return task
+    def get_task(task_id: str) -> Task | None:
+        """Retrieve a single task via MCP. Returns ``None`` if not found."""
+        return mcp_get_task(task_id)
 
     @staticmethod
     def update_task(task: Task) -> None:
@@ -87,17 +128,17 @@ class TaskAgent:
     def set_status(task_id: str, status: TaskStatus) -> None:
         """Set the status of a task (COMPLETED/PENDING)."""
         task = TaskAgent.get_task(task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
         task.status = status
         TaskAgent.update_task(task)
 
     @staticmethod
     def create_tasks(tasks: List[Task]) -> None:
-        """Create multiple tasks via MCP."""
+        """Create multiple tasks via the DB, preserving task IDs.
+
+        This avoids the UUID regeneration performed by the MCP create_task façade.
+        """
+        from ..database.db import add_task as db_add_task
         for t in tasks:
-            mcp_create_task(
-                title=t.title,
-                deadline=t.deadline,
-                description=t.description,
-                priority=t.priority.name,
-                estimated_hours=t.estimated_hours,
-            )
+            db_add_task(t)
