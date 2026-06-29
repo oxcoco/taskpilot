@@ -13,41 +13,19 @@ libraries beyond the Python standard library.
 
 import datetime
 from typing import List, Dict
+from .deadline_parse import normalize_deadline
 from .task_agent import TaskAgent  # noqa: F401  (imported for type hint consistency)
 from ..database.models import TaskPriority
 
 
-def _parse_deadline_word(word: str) -> datetime.date | None:
-    """Convert a single word deadline into a concrete date.
-
-    Supported words:
-    * "today"
-    * "tomorrow"
-    * weekday names ("monday" … "sunday") – interpreted as the next
-      occurrence of that weekday (including today if it matches).
-    Returns ``None`` for unrecognised words.
-    """
-    today = datetime.date.today()
-    w = word.lower()
-    if w == "today":
-        return today
-    if w == "tomorrow":
-        return today + datetime.timedelta(days=1)
-    weekdays = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-        "saturday": 5,
-        "sunday": 6,
-    }
-    if w in weekdays:
-        target = weekdays[w]
-        days_ahead = (target - today.weekday()) % 7
-        # If today is the same weekday, treat it as today.
-        return today + datetime.timedelta(days=days_ahead)
-    return None
+def _parse_deadline_date(deadline_str: str) -> datetime.date | None:
+    normalized = normalize_deadline(deadline_str)
+    if not normalized:
+        return None
+    try:
+        return datetime.datetime.strptime(normalized, "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
 
 class PriorityAgent:
@@ -70,7 +48,7 @@ class PriorityAgent:
                 # Simple heuristic: take the last word after "by" if present.
                 # The TaskAgent already stripped the "by <word>" from the title,
                 # leaving the word as the deadline value.
-                deadline_date = _parse_deadline_word(deadline_str)
+                deadline_date = _parse_deadline_date(deadline_str)
                 if deadline_date:
                     days_until = (deadline_date - datetime.date.today()).days
                     if days_until <= 2:

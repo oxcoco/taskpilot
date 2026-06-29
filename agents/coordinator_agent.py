@@ -13,6 +13,8 @@ output, saved to a database, etc.
 
 from __future__ import annotations
 
+from typing import Any, Dict, List
+
 from ..database.db import create_tables, add_task, list_tasks
 
 # Local imports – the agents live in the same package.

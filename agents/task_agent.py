@@ -13,6 +13,7 @@ import datetime
 from typing import List
 
 from ..database.models import Task, TaskPriority, TaskStatus
+from .deadline_parse import normalize_deadline, parse_title_and_deadline
 from ..mcp.todo_server import (
     create_task as mcp_create_task,
     update_task as mcp_update_task,
@@ -23,45 +24,8 @@ from ..mcp.todo_server import (
 
 
 def _normalize_deadline(deadline: str | None) -> str | None:
-    """Convert a deadline string (e.g., "today", "tomorrow", weekday, ISO) to an ISO date.
-
-    Returns the ISO string (YYYY‑MM‑DD) if parsing succeeds, otherwise returns the original value.
-    """
-    if not deadline:
-        return None
-    today = datetime.date.today()
-    w = deadline.lower().strip()
-    # ISO format
-    try:
-        return datetime.datetime.strptime(w, "%Y-%m-%d").date().isoformat()
-    except Exception:
-        pass
-    if w == "today":
-        return today.isoformat()
-    if w == "tomorrow":
-        return (today + datetime.timedelta(days=1)).isoformat()
-    weekdays = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-        "saturday": 5,
-        "sunday": 6,
-    }
-    if w in weekdays:
-        target = weekdays[w]
-        days_ahead = (target - today.weekday()) % 7
-        return (today + datetime.timedelta(days=days_ahead)).isoformat()
-    if w.startswith("next "):
-        day_name = w.split(" ", 1)[1]
-        if day_name in weekdays:
-            target = weekdays[day_name]
-            days_ahead = (target - today.weekday()) % 7
-            days_ahead = days_ahead or 7
-            return (today + datetime.timedelta(days=days_ahead)).isoformat()
-    # fallback
-    return deadline
+    """Backward-compatible wrapper."""
+    return normalize_deadline(deadline)
 
 
 class TaskAgent:
@@ -76,18 +40,7 @@ class TaskAgent:
 
     @staticmethod
     def _parse_fragment(fragment: str) -> Task:
-        fragment = fragment.strip()
-        # Detect "by <deadline>" at the end.
-        match = re.search(
-            r"(?P<title>.+?)\s+by\s+(?P<deadline>\w+)$", fragment, flags=re.IGNORECASE
-        )
-        if match:
-            title = match.group("title").strip()
-            raw_deadline = match.group("deadline").strip()
-            deadline = _normalize_deadline(raw_deadline)
-        else:
-            title = fragment
-            deadline = None
+        title, deadline = parse_title_and_deadline(fragment)
         return Task(
             id=str(uuid.uuid4()),
             title=title,

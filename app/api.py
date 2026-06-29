@@ -148,50 +148,9 @@ def get_schedule():
 @app.route("/api/check_deadlines", methods=["POST"])
 def trigger_deadline_check():
     try:
-        import datetime
-        from taskpilot.database.db import list_tasks
-        from taskpilot.database.models import TaskStatus
+        from taskpilot.skills.deadline_check import get_deadline_summary
 
-        today = datetime.date.today()
-        next_week = today + datetime.timedelta(days=3)
-        overdue = []
-        upcoming = []
-        completed = []
-
-        for task in list_tasks():
-            if not task.deadline:
-                continue
-            try:
-                deadline_date = datetime.datetime.strptime(task.deadline, "%Y-%m-%d").date()
-            except ValueError:
-                word = task.deadline.lower()
-                if word == "today":
-                    deadline_date = today
-                elif word == "tomorrow":
-                    deadline_date = today + datetime.timedelta(days=1)
-                else:
-                    continue
-
-            task_data = {
-                "id": task.id,
-                "title": task.title,
-                "deadline": task.deadline,
-                "priority": task.priority.value,
-                "status": task.status.value
-            }
-
-            if task.status == TaskStatus.COMPLETED:
-                completed.append(task_data)
-            elif deadline_date < today:
-                overdue.append(task_data)
-            elif today <= deadline_date <= next_week:
-                upcoming.append(task_data)
-
-        return jsonify({
-            "overdue": overdue,
-            "upcoming": upcoming,
-            "completed": completed
-        }), 200
+        return jsonify(get_deadline_summary()), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -202,6 +161,99 @@ def get_weekly_plan():
         return jsonify({"plan": plan}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat_message():
+    try:
+        from taskpilot.agents.chat_agent import get_chat_agent
+
+        data = request.json or {}
+        message = (data.get("message") or "").strip()
+        session_id = data.get("session_id")
+        if not message:
+            return jsonify({"error": "message is required"}), 400
+
+        agent = get_chat_agent()
+        response = agent.handle_message(message, session_id)
+        return jsonify(response), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/approve", methods=["POST"])
+def chat_approve():
+    try:
+        from taskpilot.agents.chat_agent import get_chat_agent
+
+        data = request.json or {}
+        session_id = data.get("session_id")
+        pending_action_id = data.get("pending_action_id")
+        if not session_id or not pending_action_id:
+            return jsonify({"error": "session_id and pending_action_id are required"}), 400
+
+        agent = get_chat_agent()
+        response = agent.approve(session_id, pending_action_id)
+        return jsonify(response), 200
+    except KeyError as e:
+        return jsonify({"error": str(e)}), 404
+    except (PermissionError, ValueError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/reject", methods=["POST"])
+def chat_reject():
+    try:
+        from taskpilot.agents.chat_agent import get_chat_agent
+
+        data = request.json or {}
+        session_id = data.get("session_id")
+        pending_action_id = data.get("pending_action_id")
+        if not session_id or not pending_action_id:
+            return jsonify({"error": "session_id and pending_action_id are required"}), 400
+
+        agent = get_chat_agent()
+        response = agent.reject(session_id, pending_action_id)
+        return jsonify(response), 200
+    except KeyError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/pending", methods=["GET"])
+def chat_pending():
+    try:
+        from taskpilot.agents.chat_agent import get_chat_agent
+
+        session_id = request.args.get("session_id")
+        if not session_id:
+            return jsonify({"error": "session_id is required"}), 400
+
+        agent = get_chat_agent()
+        pending = agent.list_pending(session_id)
+        return jsonify({"pending": pending}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/history", methods=["GET"])
+def chat_history():
+    try:
+        from taskpilot.agents.chat_agent import get_chat_agent
+
+        session_id = request.args.get("session_id")
+        if not session_id:
+            return jsonify({"error": "session_id is required"}), 400
+
+        agent = get_chat_agent()
+        history = agent.get_history(session_id)
+        return jsonify({"history": history}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)

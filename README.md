@@ -32,4 +32,25 @@ python -m taskpilot.app.main add "Finish OS project by Friday"
 
 # Or start the interactive UI
 python -m taskpilot.app.run_ui
+
+# Or start the API + React frontend (includes chat assistant)
+make frontend
 ```
+
+## Chat assistant
+
+TaskPilot includes a conversational chatbot that can list tasks, check deadlines,
+generate schedules, and propose task changes. **All create, update, and delete
+actions require explicit user approval** before they are executed.
+
+```bash
+# Start the API server
+PYTHONPATH=. python -m taskpilot.app.api
+
+# In another terminal, start the frontend
+cd frontend && npm install && npm run dev
+```
+
+Open the app and click the chat button (bottom-left). For LLM-powered responses,
+set `OPENAI_API_KEY` in a `.env` file (see `.env.example`). Without an API key,
+the chatbot falls back to rule-based routing for common commands.

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import ChatPanel from './components/ChatPanel';
 
 interface Task {
   id: string;
@@ -200,7 +201,6 @@ function App() {
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
     try {
       const res = await fetch(`${API_BASE}/tasks/${taskId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete task');
@@ -212,7 +212,6 @@ function App() {
   };
 
   const clearAllTasks = async () => {
-    if (!confirm('WARNING: Are you sure you want to delete ALL tasks?')) return;
     try {
       const res = await fetch(`${API_BASE}/tasks`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete tasks');
@@ -738,6 +737,13 @@ function App() {
           </div>
         ))}
       </div>
+
+      <ChatPanel
+        onTasksChanged={() => {
+          fetchTasks();
+        }}
+        renderMarkdown={renderMarkdown}
+      />
     </div>
   );
 }
