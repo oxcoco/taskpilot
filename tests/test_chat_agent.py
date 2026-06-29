@@ -32,6 +32,7 @@ def test_rule_fallback_create_stages_approval():
     session = agent.sessions.create()
     response = agent._process_with_rules(session, "add finish report by Friday")
     assert response["approval_required"] is True
+    assert response["message"] == ""
     assert response["pending_action"]["action_name"] == "create_tasks"
 
 

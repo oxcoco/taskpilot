@@ -145,7 +145,7 @@ class ActionRegistry:
             ActionSpec(
                 name="create_tasks",
                 description=(
-                    "Create one or more tasks. Requires user approval before saving. "
+                    "Create one or more tasks. "
                     "PREFERRED: pass structured fields `title` and `deadline` separately. "
                     "Deadline accepts: today, tomorrow, weekday names (friday), next weekday (next monday), "
                     "ISO dates (2026-07-03), or US dates (7/3/2026). "
@@ -193,7 +193,7 @@ class ActionRegistry:
             ActionSpec(
                 name="update_task",
                 description=(
-                    "Update an existing task's fields. Requires user approval. "
+                    "Update an existing task's fields. "
                     "Identify the task with `reference` (title fragment or list number) or `task_id`. "
                     "Deadline format matches create_tasks."
                 ),
@@ -225,7 +225,7 @@ class ActionRegistry:
             ActionSpec(
                 name="delete_task",
                 description=(
-                    "Delete a single task. Requires user approval. "
+                    "Delete a single task. "
                     "Use `reference` (title fragment or list number) or `task_id`."
                 ),
                 parameters={
@@ -244,7 +244,7 @@ class ActionRegistry:
             ActionSpec(
                 name="delete_all_tasks",
                 description=(
-                    "Delete every task. Destructive — requires user approval. "
+                    "Delete every task. Destructive. "
                     "Use only when the user explicitly asks to clear or delete all tasks."
                 ),
                 parameters={"type": "object", "properties": {}},
@@ -258,7 +258,7 @@ class ActionRegistry:
             ActionSpec(
                 name="mark_task_done",
                 description=(
-                    "Mark a task completed. Requires user approval. "
+                    "Mark a task completed. "
                     "Use `reference` (title fragment or list number) or `task_id`."
                 ),
                 parameters={
@@ -277,7 +277,7 @@ class ActionRegistry:
             ActionSpec(
                 name="mark_task_undone",
                 description=(
-                    "Mark a completed task as pending again. Requires user approval. "
+                    "Mark a completed task as pending again. "
                     "Use `reference` or `task_id`."
                 ),
                 parameters={
@@ -296,7 +296,7 @@ class ActionRegistry:
             ActionSpec(
                 name="generate_and_persist_schedule",
                 description=(
-                    "Build a day-by-day schedule and save calendar events. Requires user approval. "
+                    "Build a day-by-day schedule and save calendar events. "
                     "Use when the user wants to generate and save a schedule, not just preview it."
                 ),
                 parameters={"type": "object", "properties": {}},

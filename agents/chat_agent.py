@@ -20,11 +20,11 @@ SYSTEM_PROMPT = """You are TaskPilot's assistant. You help users manage tasks an
 
 Rules:
 - Use tools for factual data; never invent tasks or deadlines.
-- For create, update, delete, status changes, or persisting schedules, use the matching tool.
+- For create, update, delete, status changes, or persisting schedules, call the matching tool directly.
+  Do NOT ask the user to confirm in your reply — the UI approval card handles confirmation.
 - For deadline questions, use check_deadlines.
 - For planning questions, use generate_weekly_plan or get_schedule.
-- Be concise. When proposing a mutation, clearly summarize what will happen.
-- If a task reference is ambiguous, ask the user to clarify instead of guessing.
+- Be concise. If a task reference is ambiguous, ask the user to clarify instead of guessing.
 
 Creating tasks with deadlines:
 - ALWAYS prefer create_tasks with separate `title` and `deadline` fields.
@@ -55,7 +55,8 @@ class ChatAgent:
         except Exception:
             response = self._process_with_rules(session, message)
 
-        session.add_message("assistant", response["message"])
+        if response.get("message"):
+            session.add_message("assistant", response["message"])
         response["session_id"] = session.id
         return response
 
@@ -250,9 +251,8 @@ class ChatAgent:
         }
 
     def _approval_response(self, pending: PendingAction) -> dict[str, Any]:
-        verb = "This is a destructive action." if pending.destructive else "Please confirm this action."
         return {
-            "message": f"{pending.summary}. {verb}",
+            "message": "",
             "approval_required": True,
             "pending_action": {
                 "id": pending.id,

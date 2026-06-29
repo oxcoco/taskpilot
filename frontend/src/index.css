@@ -441,7 +441,182 @@ body {
   margin-top: 24px;
 }
 
-/* Weekly Plan display */
+/* Insight panels — shared dashboard + chat display */
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.insight-grid--compact {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.insight-panel--compact {
+  font-size: 12px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+}
+
+.insight-section {
+  margin-bottom: 8px;
+}
+
+.insight-section:last-child {
+  margin-bottom: 0;
+}
+
+.insight-section-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--accent-secondary);
+}
+
+.insight-section-title.overdue-section,
+.schedule-day-title.overdue-section {
+  color: var(--priority-high);
+}
+
+.insight-section-title.upcoming-section,
+.schedule-day-title.upcoming-section {
+  color: var(--priority-medium);
+}
+
+.insight-section-title.completed-section,
+.schedule-day-title.completed-section {
+  color: var(--status-completed);
+}
+
+.insight-item {
+  padding: 4px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.insight-item.overdue-item {
+  color: var(--priority-high);
+}
+
+.insight-item.upcoming-item {
+  color: var(--priority-medium);
+}
+
+.insight-item-meta {
+  font-weight: normal;
+  color: var(--text-secondary);
+}
+
+.schedule-task-title.overdue-item {
+  border-left-color: var(--priority-high);
+}
+
+.schedule-task-title.upcoming-item {
+  border-left-color: var(--priority-medium);
+}
+
+.schedule-task-title.completed-item {
+  border-left-color: var(--status-completed);
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.schedule-task-title strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.insight-empty {
+  text-align: center;
+  padding: 20px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.insight-plan-fallback {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.insight-plan-fallback p {
+  margin: 0 0 8px;
+}
+
+/* Markdown content */
+.markdown-content {
+  color: var(--text-primary);
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.markdown-content .md-h2 {
+  font-family: var(--heading);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: var(--text-primary);
+}
+
+.markdown-content .md-h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-content .md-h3 {
+  font-family: var(--heading);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+  color: var(--accent-secondary);
+}
+
+.markdown-content .md-h4 {
+  font-family: var(--heading);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+  color: var(--accent-secondary);
+}
+
+.markdown-content .md-p {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+}
+
+.markdown-content .md-list {
+  margin: 0 0 10px 0;
+  padding-left: 18px;
+  list-style-type: disc;
+}
+
+.markdown-content .md-li {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+
+.markdown-content .md-li strong,
+.markdown-content .md-p strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.markdown-content .md-spacer {
+  height: 6px;
+}
+
+.weekly-plan-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+}
+
+/* Weekly Plan display (legacy fallback) */
 .weekly-plan-text {
   font-family: var(--sans);
   font-size: 14px;
@@ -494,7 +669,7 @@ body {
 .chat-fab {
   position: fixed;
   bottom: 24px;
-  left: 24px;
+  right: 24px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -517,7 +692,7 @@ body {
 .chat-panel {
   position: fixed;
   bottom: 96px;
-  left: 24px;
+  right: 24px;
   width: 400px;
   max-width: calc(100vw - 48px);
   height: 520px;
@@ -672,6 +847,24 @@ body {
   margin-bottom: 0;
 }
 
+.chat-artifact-section strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-secondary);
+}
+
+.chat-artifact-label.overdue {
+  color: var(--priority-high);
+}
+
+.chat-artifact-label.upcoming {
+  color: var(--priority-medium);
+}
+
+.chat-artifact-label.completed {
+  color: var(--status-completed);
+}
+
 .chat-artifact-item {
   padding: 4px 0;
   color: var(--text-secondary);
@@ -683,4 +876,9 @@ body {
 
 .chat-artifact-item.upcoming {
   color: var(--priority-medium);
+}
+
+.chat-artifact-item.completed {
+  color: var(--status-completed);
+  opacity: 0.85;
 }
