@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { WeeklyPlanView } from './InsightViews';
+import MarkdownContent from './MarkdownContent';
 
 const API_BASE = 'http://127.0.0.1:5000/api';
 
@@ -33,6 +33,40 @@ interface ChatPanelProps {
   onTasksChanged?: () => void;
 }
 
+function renderDeadlineSummaryMarkdown(data: {
+  overdue?: DeadlineTask[];
+  upcoming?: DeadlineTask[];
+  completed?: DeadlineTask[];
+}) {
+  const sections: string[] = [];
+
+  const appendSection = (title: string, tasks: DeadlineTask[] | undefined) => {
+    if (!tasks || tasks.length === 0) return;
+    sections.push(`## ${title}`);
+    for (const task of tasks) {
+      sections.push(`- **${task.title}** — Due: ${task.deadline}`);
+    }
+  };
+
+  appendSection('Overdue', data.overdue);
+  appendSection('Upcoming', data.upcoming);
+  appendSection('Completed', data.completed);
+
+  return sections.join('\n');
+}
+
+function renderScheduleMarkdown(schedule: Record<string, string[]>) {
+  return Object.entries(schedule)
+    .map(([day, items]) => {
+      const lines = [`## ${day}`];
+      for (const item of items) {
+        lines.push(`- ${item}`);
+      }
+      return lines.join('\n');
+    })
+    .join('\n\n');
+}
+
 function ArtifactRenderer({ artifact }: { artifact: ChatArtifact }) {
   if (artifact.type === 'deadline_summary') {
     const data = artifact.data as {
@@ -40,65 +74,21 @@ function ArtifactRenderer({ artifact }: { artifact: ChatArtifact }) {
       upcoming?: DeadlineTask[];
       completed?: DeadlineTask[];
     };
-    return (
-      <div className="chat-artifact">
-        {data.overdue && data.overdue.length > 0 && (
-          <div className="chat-artifact-section">
-            <strong className="chat-artifact-label overdue">Overdue</strong>
-            {data.overdue.map((t, i) => (
-              <div key={t.id || i} className="chat-artifact-item overdue">
-                {t.title} — {t.deadline}
-              </div>
-            ))}
-          </div>
-        )}
-        {data.upcoming && data.upcoming.length > 0 && (
-          <div className="chat-artifact-section">
-            <strong className="chat-artifact-label upcoming">Upcoming</strong>
-            {data.upcoming.map((t, i) => (
-              <div key={t.id || i} className="chat-artifact-item upcoming">
-                {t.title} — {t.deadline}
-              </div>
-            ))}
-          </div>
-        )}
-        {data.completed && data.completed.length > 0 && (
-          <div className="chat-artifact-section">
-            <strong className="chat-artifact-label completed">Completed</strong>
-            {data.completed.map((t, i) => (
-              <div key={t.id || i} className="chat-artifact-item completed">
-                {t.title} — {t.deadline}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+    const markdown = renderDeadlineSummaryMarkdown(data);
+    return markdown ? <MarkdownContent text={markdown} className="chat-markdown" /> : null;
   }
 
   if (artifact.type === 'weekly_plan') {
     const plan = (artifact.data as { plan?: string }).plan || '';
-    return <WeeklyPlanView plan={plan} variant="compact" />;
+    return <MarkdownContent text={plan} className="chat-markdown" />;
   }
 
   if (artifact.type === 'schedule') {
     const schedule =
       (artifact.data as { schedule?: Record<string, string[]> }).schedule ||
       (artifact.data as Record<string, string[]>);
-    return (
-      <div className="chat-artifact">
-        {Object.entries(schedule).map(([day, items]) => (
-          <div key={day} className="chat-artifact-section">
-            <strong>{day}</strong>
-            {items.map((item, i) => (
-              <div key={i} className="chat-artifact-item">
-                {item}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    );
+    const markdown = renderScheduleMarkdown(schedule);
+    return markdown ? <MarkdownContent text={markdown} className="chat-markdown" /> : null;
   }
 
   if (artifact.type === 'task_list') {
@@ -280,7 +270,15 @@ export default function ChatPanel({ onTasksChanged }: ChatPanelProps) {
           <div className="chat-messages">
             {messages.map((msg, idx) => (
               <div key={idx} className={`chat-message ${msg.role}`}>
-                {msg.content ? <div className="chat-bubble">{msg.content}</div> : null}
+                {msg.content ? (
+                  <div className="chat-bubble">
+                    {msg.role === 'assistant' ? (
+                      <MarkdownContent text={msg.content} className="chat-markdown" />
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
+                ) : null}
                 {msg.artifacts && <ArtifactRenderer artifact={msg.artifacts} />}
                 {msg.approval && (
                   <ApprovalCard
