@@ -75,6 +75,12 @@ def add_task_interactive(
     # Extract task objects
     tasks = TaskAgent().extract_tasks(raw_input)
     for task in tasks:
+        if priority:
+            try:
+                task.priority = TaskPriority[priority.upper()]
+            except KeyError:
+                task.priority = TaskPriority.MEDIUM
+        task.estimated_hours = estimated_hours
         # Use the MCP create_task to persist
         mcp_create_task(
             title=task.title,

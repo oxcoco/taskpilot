@@ -31,5 +31,28 @@ def test_deadline_conversion():
     print("All deadline conversion tests passed.")
 
 
+def test_add_task_interactive_preserves_priority_and_hours(monkeypatch):
+    captured = []
+
+    def fake_create_task(**kwargs):
+        captured.append(kwargs)
+
+    monkeypatch.setattr("taskpilot.app.ui.mcp_create_task", fake_create_task)
+
+    add_task_interactive(
+        "Write report",
+        description="for class",
+        deadline="friday",
+        priority="HIGH",
+        estimated_hours=3.5,
+    )
+
+    assert len(captured) == 1
+    task = captured[0]
+    assert task["priority"] == "HIGH"
+    assert task["estimated_hours"] == 3.5
+    assert task["deadline"] is not None
+
+
 if __name__ == "__main__":
     test_deadline_conversion()
