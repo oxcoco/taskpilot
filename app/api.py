@@ -5,11 +5,12 @@ Provides endpoints for tasks (CRUD), generating schedules, checking deadlines,
 and generating weekly plans.
 """
 
-import sys
+import os
 import pathlib
-import io
-import contextlib
-from flask import Flask, jsonify, request
+import secrets
+import sys
+from urllib.parse import urlencode
+from flask import Flask, jsonify, redirect, request, session
 from flask_cors import CORS
 
 # Add project root to PYTHONPATH
@@ -30,8 +31,17 @@ from taskpilot.app.ui import (
 from taskpilot.agents.task_agent import TaskAgent
 from taskpilot.agents.priority_agent import PriorityAgent
 from taskpilot.agents.scheduler_agent import SchedulerAgent
+from taskpilot.actions.schedule_actions import export_tasks_to_google_calendar_action
+from taskpilot.database.google_oauth import (
+    delete_google_oauth_credentials,
+    google_oauth_connected,
+    load_google_oauth_credentials,
+    save_google_oauth_credentials,
+)
+from taskpilot.mcp.google_oauth import build_google_authorization_url, exchange_code_for_tokens
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "taskpilot-dev-secret")
 CORS(app)  # Enable CORS for frontend running on other ports
 
 @app.route("/api/tasks", methods=["GET"])
@@ -159,6 +169,120 @@ def get_weekly_plan():
     try:
         plan = generate_weekly_plan()
         return jsonify({"plan": plan}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/google_calendar/export", methods=["POST"])
+def export_google_calendar():
+    try:
+        data = request.json or {}
+        result = export_tasks_to_google_calendar_action(
+            task_ids=data.get("task_ids"),
+            calendar_id=data.get("calendar_id"),
+            timezone=data.get("timezone"),
+            include_completed=bool(data.get("include_completed", True)),
+            include_undated=bool(data.get("include_undated", True)),
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/google-calendar/connect", methods=["GET"])
+def connect_google_calendar():
+    try:
+        client_id = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
+        redirect_uri = os.getenv(
+            "GOOGLE_OAUTH_REDIRECT_URI",
+            f"{request.url_root.rstrip('/')}/api/google-calendar/callback",
+        )
+        if not client_id:
+            return jsonify({"error": "GOOGLE_OAUTH_CLIENT_ID is required"}), 500
+
+        state = secrets.token_urlsafe(32)
+        session["google_oauth_state"] = state
+        session["google_oauth_return_to"] = request.args.get("return_to") or request.headers.get("Origin") or "/"
+
+        authorization_url = build_google_authorization_url(
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            state=state,
+        )
+        return redirect(authorization_url)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/google-calendar/callback", methods=["GET"])
+def google_calendar_callback():
+    try:
+        stored_state = session.pop("google_oauth_state", None)
+        return_to = session.pop("google_oauth_return_to", "/")
+        redirect_uri = os.getenv(
+            "GOOGLE_OAUTH_REDIRECT_URI",
+            f"{request.url_root.rstrip('/')}/api/google-calendar/callback",
+        )
+        error_value = request.args.get("error")
+        if error_value:
+            query = urlencode({"google_calendar": "error", "message": error_value})
+            return redirect(f"{return_to}{'&' if '?' in return_to else '?'}{query}")
+
+        if request.args.get("state") != stored_state:
+            query = urlencode({"google_calendar": "error", "message": "Invalid OAuth state"})
+            return redirect(f"{return_to}{'&' if '?' in return_to else '?'}{query}")
+
+        code = request.args.get("code")
+        if not code:
+            query = urlencode({"google_calendar": "error", "message": "Missing authorization code"})
+            return redirect(f"{return_to}{'&' if '?' in return_to else '?'}{query}")
+
+        client_id = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
+        client_secret = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+        if not client_id or not client_secret:
+            return jsonify({"error": "GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET are required"}), 500
+
+        token_data = exchange_code_for_tokens(
+            code=code,
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+        )
+        refresh_token = token_data.get("refresh_token")
+        if refresh_token:
+            save_google_oauth_credentials(
+                refresh_token=refresh_token,
+                scope=token_data.get("scope"),
+            )
+        query = urlencode({"google_calendar": "connected"})
+        return redirect(f"{return_to}{'&' if '?' in return_to else '?'}{query}")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/google-calendar/status", methods=["GET"])
+def google_calendar_status():
+    try:
+        creds = load_google_oauth_credentials()
+        return (
+            jsonify(
+                {
+                    "connected": bool(creds),
+                    "calendar_id": os.getenv("GOOGLE_CALENDAR_ID", "primary"),
+                    "timezone": os.getenv("GOOGLE_CALENDAR_TIMEZONE", "UTC"),
+                }
+            ),
+            200,
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/google-calendar/disconnect", methods=["POST"])
+def google_calendar_disconnect():
+    try:
+        delete_google_oauth_credentials()
+        return jsonify({"connected": False}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

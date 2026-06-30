@@ -8,6 +8,7 @@ from ..agents.priority_agent import PriorityAgent
 from ..agents.scheduler_agent import SchedulerAgent
 from ..agents.task_agent import TaskAgent
 from ..mcp.calendar_server import list_events
+from ..mcp.google_calendar import GoogleCalendarClient
 from ..skills.weekly_plan import generate_weekly_plan
 
 
@@ -53,6 +54,25 @@ def _preview_schedule(ranked: list[dict[str, Any]]) -> dict[str, list[str]]:
 
 def generate_and_persist_schedule_action() -> dict[str, Any]:
     return get_schedule_action(persist=True)
+
+
+def export_tasks_to_google_calendar_action(
+    task_ids: list[str] | None = None,
+    calendar_id: str | None = None,
+    timezone: str | None = None,
+    include_completed: bool = False,
+    include_undated: bool = False,
+) -> dict[str, Any]:
+    tasks = TaskAgent.list_tasks()
+    if task_ids:
+        wanted = {task_id for task_id in task_ids}
+        tasks = [task for task in tasks if task.id in wanted]
+    client = GoogleCalendarClient.from_environment(calendar_id=calendar_id, timezone=timezone)
+    return client.export_tasks(
+        tasks,
+        include_completed=include_completed,
+        include_undated=include_undated,
+    )
 
 
 def generate_weekly_plan_action() -> dict[str, Any]:

@@ -35,6 +35,7 @@ function App() {
   const [schedule, setSchedule] = useState<Schedule>({});
   const [weeklyPlan, setWeeklyPlan] = useState<string>('');
   const [deadlineData, setDeadlineData] = useState<{ overdue: DeadlineInfo[]; upcoming: DeadlineInfo[]; completed: DeadlineInfo[] } | null>(null);
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Modals
@@ -63,7 +64,7 @@ function App() {
     }, 4000);
   };
 
-  const API_BASE = 'http://127.0.0.1:5000/api';
+  const API_BASE = '/api';
 
   const fetchTasks = async () => {
     try {
@@ -115,6 +116,43 @@ function App() {
       showToast('Deadlines checked');
     } catch (err: any) {
       showToast(`Error: ${err.message}`);
+    }
+  };
+
+  const fetchGoogleCalendarStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/google-calendar/status`);
+      if (!res.ok) throw new Error('Failed to fetch Google Calendar status');
+      const data = await res.json();
+      setGoogleCalendarConnected(Boolean(data.connected));
+    } catch {
+      setGoogleCalendarConnected(false);
+    }
+  };
+
+  const connectGoogleCalendar = () => {
+    window.location.href = `${API_BASE}/google-calendar/connect?return_to=${encodeURIComponent(window.location.origin)}`;
+  };
+
+  const exportToGoogleCalendar = async () => {
+    if (!googleCalendarConnected) {
+      showToast('Connect Google Calendar first.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/google_calendar/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include_completed: true, include_undated: true }),
+      });
+      if (!res.ok) throw new Error('Google Calendar export failed');
+      const data = await res.json();
+      showToast(`Exported ${data.exported_count ?? 0} task(s) to Google Calendar`);
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -245,6 +283,18 @@ function App() {
 
   useEffect(() => {
     fetchTasks();
+    fetchGoogleCalendarStatus();
+
+    const params = new URLSearchParams(window.location.search);
+    const googleCalendarStatus = params.get('google_calendar');
+    if (googleCalendarStatus === 'connected') {
+      showToast('Google Calendar connected successfully');
+    } else if (googleCalendarStatus === 'error') {
+      showToast(params.get('message') || 'Google Calendar connection failed');
+    }
+    if (googleCalendarStatus) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const sortTasksByDeadline = (a: Task, b: Task) => {
@@ -309,6 +359,16 @@ function App() {
           <div className="brand-subtitle">Smart agentic task scheduler & planner</div>
         </div>
         <div className="global-actions">
+          <button className="btn btn-secondary" onClick={connectGoogleCalendar} disabled={loading}>
+            Connect Google Calendar
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={exportToGoogleCalendar}
+            disabled={loading || !googleCalendarConnected}
+          >
+            Export to Google Calendar
+          </button>
           <button className="btn btn-secondary" onClick={triggerDeadlineCheck}>
             Check Deadlines
           </button>
@@ -320,6 +380,9 @@ function App() {
           </button>
         </div>
       </header>
+      <div style={{ alignSelf: 'flex-end', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '-8px' }}>
+        Google Calendar: {googleCalendarConnected ? 'Connected' : 'Not connected'}
+      </div>
 
       {/* NLP Bar */}
       <section className="panel-card">

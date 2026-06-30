@@ -8,6 +8,7 @@ from typing import Any, Callable, Literal
 from ..skills.deadline_check import get_deadline_summary
 from .schedule_actions import (
     generate_and_persist_schedule_action,
+    export_tasks_to_google_calendar_action,
     generate_weekly_plan_action,
     get_schedule_action,
     list_calendar_events_action,
@@ -306,6 +307,44 @@ class ActionRegistry:
                 artifact_type="schedule",
             )
         )
+        self.register(
+            ActionSpec(
+                name="export_tasks_to_google_calendar",
+                description=(
+                    "Export one or more tasks to the user's Google Calendar. "
+                    "Use when the user asks to send, sync, or export tasks to Google Calendar."
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "task_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional task IDs to export. Defaults to all non-completed tasks.",
+                        },
+                        "calendar_id": {
+                            "type": "string",
+                            "description": "Optional Google Calendar ID. Defaults to primary.",
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Optional event timezone, e.g. America/New_York.",
+                        },
+                        "include_completed": {
+                            "type": "boolean",
+                            "description": "Include completed tasks in the export.",
+                        },
+                        "include_undated": {
+                            "type": "boolean",
+                            "description": "Place undated tasks on today instead of skipping them.",
+                        },
+                    },
+                },
+                requires_approval=True,
+                handler=export_tasks_to_google_calendar_action,
+                category="mutate",
+            )
+        )
 
     def register(self, spec: ActionSpec) -> None:
         self._specs[spec.name] = spec
@@ -357,6 +396,9 @@ class ActionRegistry:
             return f"Mark pending: {ref}"
         if name == "generate_and_persist_schedule":
             return "Generate schedule and save calendar events"
+        if name == "export_tasks_to_google_calendar":
+            count = len(payload.get("task_ids", [])) if payload.get("task_ids") else "all eligible"
+            return f"Export {count} task(s) to Google Calendar"
         return f"Execute {name}"
 
     def openai_tools(self) -> list[dict[str, Any]]:

@@ -24,6 +24,7 @@ Rules:
   Do NOT ask the user to confirm in your reply — the UI approval card handles confirmation.
 - For deadline questions, use check_deadlines.
 - For planning questions, use generate_weekly_plan or get_schedule.
+- For calendar export requests, use export_tasks_to_google_calendar and require approval before exporting.
 - Be concise. If a task reference is ambiguous, ask the user to clarify instead of guessing.
 
 Creating tasks with deadlines:
@@ -344,6 +345,9 @@ class ChatAgent:
             return "Done — task marked as pending."
         if name == "generate_and_persist_schedule":
             return "Done — schedule generated and calendar events saved."
+        if name == "export_tasks_to_google_calendar":
+            count = action.result.get("exported_count", 0) if action.result else 0
+            return f"Done — exported {count} task(s) to Google Calendar."
         return "Action completed successfully."
 
     def _normalize_action_payload(self, action_name: str, payload: dict[str, Any]) -> dict[str, Any]:

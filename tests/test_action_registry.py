@@ -10,9 +10,16 @@ from taskpilot.mcp.todo_server import create_task
 def test_all_mutating_actions_require_approval():
     registry = get_registry()
     mutating = [s for s in registry.all_specs() if s.category == "mutate"]
-    assert len(mutating) >= 6
+    assert len(mutating) >= 7
     for spec in mutating:
         assert spec.requires_approval is True
+
+
+def test_google_calendar_export_is_registered_and_protected():
+    registry = get_registry()
+    spec = registry.get("export_tasks_to_google_calendar")
+    assert spec.category == "mutate"
+    assert spec.requires_approval is True
 
 
 def test_read_actions_do_not_require_approval():

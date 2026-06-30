@@ -23,6 +23,18 @@ def route_message(message: str) -> dict[str, Any] | None:
             return {"action_name": "generate_and_persist_schedule", "payload": {}}
         return {"action_name": "get_schedule", "payload": {}}
 
+    if any(
+        phrase in text
+        for phrase in (
+            "google calendar",
+            "export to calendar",
+            "export tasks",
+            "sync tasks to calendar",
+            "send tasks to calendar",
+        )
+    ):
+        return {"action_name": "export_tasks_to_google_calendar", "payload": {}}
+
     if re.search(r"\b(list|show|what are)\b.*\btasks\b", text) or text in ("tasks", "my tasks"):
         return {"action_name": "list_tasks", "payload": {}}
 

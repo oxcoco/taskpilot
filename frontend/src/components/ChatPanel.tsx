@@ -137,7 +137,9 @@ function ApprovalCard({
   );
 }
 
-export default function ChatPanel({ onTasksChanged }: ChatPanelProps) {
+export default function ChatPanel({
+  onTasksChanged,
+}: ChatPanelProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -185,33 +187,41 @@ export default function ChatPanel({ onTasksChanged }: ChatPanelProps) {
     [appendAssistant, onTasksChanged]
   );
 
+  const submitMessage = useCallback(
+    async (text: string): Promise<boolean> => {
+      const trimmed = text.trim();
+      if (!trimmed || loading) return false;
+
+      setMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
+      setInput('');
+      setLoading(true);
+
+      try {
+        const res = await fetch(`${API_BASE}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: trimmed, session_id: sessionId }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Chat request failed');
+        }
+        const data = await res.json();
+        handleResponse(data);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        appendAssistant(`Sorry, something went wrong: ${msg}`);
+      } finally {
+        setLoading(false);
+      }
+      return true;
+    },
+    [appendAssistant, handleResponse, loading, sessionId]
+  );
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    const text = input.trim();
-    if (!text || loading) return;
-
-    setMessages((prev) => [...prev, { role: 'user', content: text }]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${API_BASE}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Chat request failed');
-      }
-      const data = await res.json();
-      handleResponse(data);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      appendAssistant(`Sorry, something went wrong: ${msg}`);
-    } finally {
-      setLoading(false);
-    }
+    await submitMessage(input);
   };
 
   const handleApproval = async (pending: PendingAction, approved: boolean) => {

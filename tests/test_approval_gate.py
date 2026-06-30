@@ -63,3 +63,58 @@ def test_delete_task_requires_approval():
     pending = gate.stage("sess-1", "delete_task", {"task_id": task.id})
     gate.approve("sess-1", pending.id)
     assert TaskAgent.get_task(task.id) is None
+
+
+def test_google_calendar_export_requires_approval(monkeypatch):
+    from taskpilot.actions import schedule_actions
+
+    task = create_task(title="Export me", deadline="tomorrow", priority=TaskPriority.HIGH.value)
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def export_tasks(self, tasks, include_completed=False, include_undated=False):
+            self.calls.append(
+                {
+                    "tasks": list(tasks),
+                    "include_completed": include_completed,
+                    "include_undated": include_undated,
+                }
+            )
+            return {
+                "calendar_id": "primary",
+                "timezone": "UTC",
+                "exported_count": len(self.calls[-1]["tasks"]),
+                "skipped_count": 0,
+                "created_events": [{"id": "evt-1", "title": task.title}],
+                "skipped_tasks": [],
+            }
+
+    fake_client = FakeClient()
+    monkeypatch.setattr(schedule_actions.GoogleCalendarClient, "from_environment", classmethod(lambda cls, **kwargs: fake_client))
+
+    gate = ApprovalGate()
+    pending = gate.stage("sess-1", "export_tasks_to_google_calendar", {})
+    assert pending.action_name == "export_tasks_to_google_calendar"
+    assert "Google Calendar" in pending.summary
+
+    executed = gate.approve("sess-1", pending.id)
+    assert executed.status == ApprovalStatus.EXECUTED
+    assert executed.result["exported_count"] == 1
+    assert fake_client.calls
+
+
+def test_google_calendar_export_rejects_without_export(monkeypatch):
+    from taskpilot.actions import schedule_actions
+
+    class FakeClient:
+        def export_tasks(self, *args, **kwargs):
+            raise AssertionError("export should not be called on reject")
+
+    monkeypatch.setattr(schedule_actions.GoogleCalendarClient, "from_environment", classmethod(lambda cls, **kwargs: FakeClient()))
+
+    gate = ApprovalGate()
+    pending = gate.stage("sess-1", "export_tasks_to_google_calendar", {})
+    rejected = gate.reject("sess-1", pending.id)
+    assert rejected.status == ApprovalStatus.REJECTED
