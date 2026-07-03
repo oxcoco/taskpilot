@@ -42,7 +42,34 @@ from taskpilot.mcp.google_oauth import build_google_authorization_url, exchange_
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "taskpilot-dev-secret")
-CORS(app)  # Enable CORS for frontend running on other ports
+
+
+def _cors_origins() -> list[str]:
+    """Build the allowed CORS origins list.
+
+    - `CORS_ALLOWED_ORIGINS`: comma-separated full origins for precise control.
+    - Fallback includes local dev hosts and common hosted frontend domains.
+    """
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    return [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://localhost:5173",
+        "https://127.0.0.1:5173",
+        r"https://.*\.github\.io",
+        r"https://.*\.onrender\.com",
+    ]
+
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": _cors_origins()}},
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+)
 
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():

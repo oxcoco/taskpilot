@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import ChatPanel from './components/ChatPanel';
 import { DeadlineSummaryView, ScheduleInsightView, WeeklyPlanView } from './components/InsightViews';
-import { API_BASE, API_BASE_LABEL } from './config';
+import { API_BASE } from './config';
 
 interface Task {
   id: string;
@@ -381,9 +381,6 @@ function App() {
       </header>
       <div style={{ alignSelf: 'flex-end', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '-8px' }}>
         Google Calendar: {googleCalendarConnected ? 'Connected' : 'Not connected'}
-      </div>
-      <div style={{ alignSelf: 'flex-end', color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
-        {API_BASE_LABEL}
       </div>
 
       {/* NLP Bar */}
