@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MarkdownContent from './MarkdownContent';
-
-const API_BASE = 'http://127.0.0.1:5000/api';
+import { API_BASE } from '../config';
 
 export interface PendingAction {
   id: string;

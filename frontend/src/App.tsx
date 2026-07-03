@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import ChatPanel from './components/ChatPanel';
 import { DeadlineSummaryView, ScheduleInsightView, WeeklyPlanView } from './components/InsightViews';
+import { API_BASE } from './config';
 
 interface Task {
   id: string;
@@ -63,8 +64,6 @@ function App() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   };
-
-  const API_BASE = '/api';
 
   const fetchTasks = async () => {
     try {
