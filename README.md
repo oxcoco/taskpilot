@@ -103,3 +103,5 @@ callback URL.
 - Chat mutations require explicit user approval.
 - Google OAuth is backend-managed.
 - The project is designed for local development and single-user workflows.
+
+
