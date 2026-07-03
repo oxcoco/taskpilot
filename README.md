@@ -83,6 +83,7 @@ Set these values in `.env` as needed:
 - `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for Google Calendar connect
 - `GOOGLE_CALENDAR_ID` for the target calendar
 - `GOOGLE_CALENDAR_TIMEZONE` for event timezone
+- `VITE_API_BASE_URL` for APIR URL. Keep empty to use local deployment.
 
 The backend derives the OAuth callback from the current origin in local
 development. Only set `GOOGLE_OAUTH_REDIRECT_URI` if you deploy with a fixed
